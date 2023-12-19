@@ -126,8 +126,8 @@ def main():
     optimizer = torch.optim.SGD(params=model.parameters(), lr=LEARNING_RATE)
     X, y = get_data()
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=True)
-    train(model, X_train[0], y_train[0], loss_fn, optimizer, EPOCHS, accuracy_fn, device)
-    test(model, X_test[0], y_test[0], loss_fn, accuracy_fn, device)
+    train(model, X_train, y_train, loss_fn, optimizer, EPOCHS, accuracy_fn, device)
+    test(model, X_test, y_test, loss_fn, accuracy_fn, device)
 
 if __name__ == "__main__":
     main()
