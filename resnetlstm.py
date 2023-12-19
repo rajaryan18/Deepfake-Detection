@@ -3,7 +3,6 @@ from torch import nn
 import cv2
 from torchvision import models, transforms
 import glob
-from PIL import Image
 from sklearn.model_selection import train_test_split
 
 LEARNING_RATE = 0.001
@@ -29,20 +28,20 @@ class ResnetLstm(nn.Module):
             nn.Linear(in_features=hidden_size//2, out_features=1),
             nn.Sigmoid()
         )
-    
+
     def forward(self, sequence: torch.Tensor):
-        sequence = sequence.squeeze(dim=1).to(torch.device("cuda"))
-        sequence = self.flatten(self.conv(sequence)).to(torch.device("cuda"))
+        # sequence = sequence.squeeze(dim=1).to(torch.device("cuda"))
+        sequence = self.flatten(self.conv(sequence))
         result, _ = self.lstm(sequence)
         output = self.head(result)
         return output
 
 def accuracy_fn(y_pred, y):
-    return sum([1 for i in range(len(y))if y_pred[i] == y[i]]) / len(y)
+      return sum([1 for i in range(len(y)) if (y_pred[i] < 0.5 and y[i] == 0) or (y_pred[i] >= 0.5 and y[i] == 1)]) / len(y)
 
 def train(model: ResnetLstm, X: list, Y: list, loss_fn: nn.Module, optimizer: torch.optim.Optimizer, epochs: int, accuracy_fn, device: torch.device="cpu"):
     model.to(device)
-    resnet = nn.Sequential(*(list(models.resnet18(pretrained=True).children())[0:8]))
+    resnet = nn.Sequential(*(list(models.resnet18(pretrained=True).children())[0:8])).to(device)
     resnet.eval()
     print("\n\n===============Beginning the Training Process==================")
     print(f"Size of training dataset: {len(X)} | No of Epochs: {epochs}")
@@ -53,22 +52,22 @@ def train(model: ResnetLstm, X: list, Y: list, loss_fn: nn.Module, optimizer: to
         for (x, y) in zip(X, Y):
             video = cv2.VideoCapture(x)
             sequence = []
-            print(y)
-            while video.isOpened():
-                ok, frame = video.read()
-                if not ok:
-                    break
-                frame = Image.fromarray(frame)
-                frame = transforms.ToTensor()(frame)
-                frame = resnet(frame.unsqueeze(dim=0))
-                sequence.append(frame)
+            with torch.no_grad():
+              while video.isOpened():
+                  ok, frame = video.read()
+                  if not ok:
+                      break
+                  # frame = Image.fromarray(frame)
+                  frame = transforms.ToTensor()(frame).to(device)
+                  frame = resnet(frame.unsqueeze(dim=0))
+                  sequence.append(frame.squeeze())
             sequence = torch.stack(sequence)
             sequence.to(device)
             y = torch.Tensor([y]*len(sequence))
             y = y.to(device)
             y_pred = model(sequence).squeeze()
             loss = loss_fn(y_pred, y)
-            train_loss += loss
+            train_loss += float(loss)
             accuracy += accuracy_fn(y_pred, y)
             optimizer.zero_grad()
             loss.backward()
@@ -76,7 +75,7 @@ def train(model: ResnetLstm, X: list, Y: list, loss_fn: nn.Module, optimizer: to
         print(f"Train Loss: {train_loss / len(X)} | Train Accuracy: {accuracy / len(X)}")
 
 def test(model: ResnetLstm, X: list, Y: list, loss_fn: nn.Module, accuracy_fn, device: torch.device="cpu"):
-    resnet = nn.Sequential(*(list(models.resnet18(pretrained=True).children())[0:8]))
+    resnet = nn.Sequential(*(list(models.resnet18(pretrained=True).children())[0:8])).to(device)
     resnet.eval()
     print("\n===========Beginning the Testing Process====================")
     print(f"Size of test dataset: {len(X)}")
@@ -88,22 +87,21 @@ def test(model: ResnetLstm, X: list, Y: list, loss_fn: nn.Module, accuracy_fn, d
         for (x, y) in zip(X, Y):
             video = cv2.VideoCapture(x)
             sequence = []
-            print(y)
             while video.isOpened():
                 ok, frame = video.read()
                 if not ok:
                     break
-                frame = Image.fromarray(frame)
-                frame = transforms.ToTensor()(frame)
+                # frame = Image.fromarray(frame)
+                frame = transforms.ToTensor()(frame).to(device)
                 frame = resnet(frame.unsqueeze(dim=0))
-                sequence.append(frame)
+                sequence.append(frame.squeeze())
             sequence = torch.stack(sequence)
             sequence.to(device)
             y = torch.Tensor([y]*len(sequence))
             y = y.to(device)
             y_pred = model(sequence).squeeze()
             loss = loss_fn(y_pred, y)
-            test_loss += loss
+            test_loss += float(loss)
             accuracy += accuracy_fn(y_pred, y)
         print(f"Test Loss: {test_loss / len(X)} | Test Accuracy: {accuracy / len(X)}")
 
