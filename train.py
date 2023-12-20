@@ -6,11 +6,12 @@ import torch
 from torch import nn
 
 from models import ResnetLstm, Convolution3d
+from preprocess import preprocess
 
 LEARNING_RATE = 0.001
 EPOCHS = 50
 
-def accuracy_fn(y_pred: torch.Tensor, y: torch.Tensor) -> float:
+def accuracy_fn(y_pred: torch.Tensor, y: torch.Tensor):
       return sum([1 for i in range(len(y)) if (y_pred[i] < 0.5 and y[i] == 0) or (y_pred[i] >= 0.5 and y[i] == 1)]) / len(y)
 
 def train(model: ResnetLstm, X: list, Y: list, loss_fn: nn.Module, optimizer: torch.optim.Optimizer, accuracy_fn: any, device: torch.device="cpu") -> None:
@@ -29,7 +30,7 @@ def train(model: ResnetLstm, X: list, Y: list, loss_fn: nn.Module, optimizer: to
               ok, frame = video.read()
               if not ok:
                   break
-              # frame = Image.fromarray(frame)
+              frame = preprocess(frame)
               frame = transforms.ToTensor()(frame).to(device)
               frame = resnet(frame.unsqueeze(dim=0))
               sequence.append(frame.squeeze())
@@ -46,7 +47,7 @@ def train(model: ResnetLstm, X: list, Y: list, loss_fn: nn.Module, optimizer: to
         optimizer.step()
     print(f"Train Loss: {train_loss / len(X)} | Train Accuracy: {accuracy / len(X)}")
 
-def test(model: ResnetLstm, X: list, Y: list, loss_fn: nn.Module, accuracy_fn: any, device: torch.device="cpu") -> None:
+def test(model: ResnetLstm, X: list, Y: list, loss_fn: nn.Module, accuracy_fn: any, device: torch.device="cpu"):
     resnet = nn.Sequential(*(list(models.resnet18(pretrained=True).children())[0:8])).to(device)
     resnet.eval()
     print("\n===========Beginning the Testing Process====================")
@@ -63,7 +64,7 @@ def test(model: ResnetLstm, X: list, Y: list, loss_fn: nn.Module, accuracy_fn: a
                 ok, frame = video.read()
                 if not ok:
                     break
-                # frame = Image.fromarray(frame)
+                frame = preprocess(frame)
                 frame = transforms.ToTensor()(frame).to(device)
                 frame = resnet(frame.unsqueeze(dim=0))
                 sequence.append(frame.squeeze())
@@ -77,7 +78,7 @@ def test(model: ResnetLstm, X: list, Y: list, loss_fn: nn.Module, accuracy_fn: a
             accuracy += accuracy_fn(y_pred, y)
         print(f"Test Loss: {test_loss / len(X)} | Test Accuracy: {accuracy / len(X)}")
 
-def get_data() -> tuple:
+def get_data():
     fake = glob.glob("./dataset/fake/*")
     real = glob.glob("./dataset/real/*")
     y = [0]*len(fake) + [1]*len(real)
@@ -86,10 +87,14 @@ def get_data() -> tuple:
     return X, y
 
 
-def main() -> None:
+def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Device in use: {device}")
+    
+    # Model definition
     model = ResnetLstm(input_size=420, hidden_size=1000)
+    # model = Convolution3d(input_size=500, hidden_size=1000)
+
     total_params = sum(
         param.numel() for param in model.parameters()
     )

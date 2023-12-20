@@ -2,7 +2,7 @@ import torch
 from torch import nn
 
 class Convolution3d(nn.Module):
-    def __init__(self, input_size, hidden_size) -> None:
+    def __init__(self, input_size, hidden_size):
         super(Convolution3d, self).__init__()
         self.conv = nn.Sequential(
             nn.Conv3d(in_channels=3, out_channels=8, kernel_size=3, stride=2),
@@ -39,7 +39,7 @@ class Convolution3d(nn.Module):
             nn.Sigmoid()
         )
 
-    def forward(self, video: torch.Tensor) -> torch.Tensor:
+    def forward(self, video: torch.Tensor):
         return self.head(self.flatten(self.conv(video)))
 
 
@@ -61,7 +61,7 @@ class ResnetLstm(nn.Module):
             nn.Sigmoid()
         )
 
-    def forward(self, sequence: torch.Tensor) -> torch.Tensor:
+    def forward(self, sequence: torch.Tensor):
         sequence = self.flatten(self.conv(sequence))
         result, _ = self.lstm(sequence)
         output = self.head(result)
