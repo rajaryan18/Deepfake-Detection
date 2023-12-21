@@ -15,6 +15,7 @@ def accuracy_fn(y_pred: torch.Tensor, y: torch.Tensor):
       return sum([1 for i in range(len(y)) if (y_pred[i] < 0.5 and y[i] == 0) or (y_pred[i] >= 0.5 and y[i] == 1)]) / len(y)
 
 def train(model: ResnetLstm, X: list, Y: list, loss_fn: nn.Module, optimizer: torch.optim.Optimizer, accuracy_fn: any, device: torch.device="cpu") -> None:
+    model.train()
     model.to(device)
     resnet = nn.Sequential(*(list(models.resnet18(pretrained=True).children())[0:8])).to(device)
     resnet.eval()
