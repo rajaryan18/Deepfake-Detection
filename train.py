@@ -25,11 +25,15 @@ def train(model: ResnetLstm, X: list, Y: list, loss_fn: nn.Module, optimizer: to
     for (x, y) in zip(X, Y):
         video = cv2.VideoCapture(x)
         sequence = []
+        cnt=0
         with torch.no_grad():
           while video.isOpened():
               ok, frame = video.read()
               if not ok:
                   break
+              cnt += 1
+              if cnt%3 != 0:
+                  continue
               frame = preprocess(frame)
               frame = transforms.ToTensor()(frame).to(device)
               frame = resnet(frame.unsqueeze(dim=0))
@@ -45,6 +49,8 @@ def train(model: ResnetLstm, X: list, Y: list, loss_fn: nn.Module, optimizer: to
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+        del sequence
+    del resnet
     print(f"Train Loss: {train_loss / len(X)} | Train Accuracy: {accuracy / len(X)}")
 
 def test(model: ResnetLstm, X: list, Y: list, loss_fn: nn.Module, accuracy_fn: any, device: torch.device="cpu"):
@@ -60,10 +66,13 @@ def test(model: ResnetLstm, X: list, Y: list, loss_fn: nn.Module, accuracy_fn: a
         for (x, y) in zip(X, Y):
             video = cv2.VideoCapture(x)
             sequence = []
+            cnt = 0
             while video.isOpened():
                 ok, frame = video.read()
                 if not ok:
                     break
+                if cnt%3 != 0:
+                    continue
                 frame = preprocess(frame)
                 frame = transforms.ToTensor()(frame).to(device)
                 frame = resnet(frame.unsqueeze(dim=0))
@@ -76,6 +85,8 @@ def test(model: ResnetLstm, X: list, Y: list, loss_fn: nn.Module, accuracy_fn: a
             loss = loss_fn(y_pred, y)
             test_loss += float(loss)
             accuracy += accuracy_fn(y_pred, y)
+            del sequence
+        del resnet
         print(f"Test Loss: {test_loss / len(X)} | Test Accuracy: {accuracy / len(X)}")
 
 def get_data():
@@ -105,8 +116,8 @@ def main():
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=True)
     for epoch in range(EPOCHS):
         print(f"Epoch {epoch+1}:")
-        train(model, X_train[0], y_train[0], loss_fn, optimizer, accuracy_fn, device)
-        test(model, X_test[0], y_test[0], loss_fn, accuracy_fn, device)
+        train(model, X_train, y_train, loss_fn, optimizer, accuracy_fn, device)
+        test(model, X_test, y_test, loss_fn, accuracy_fn, device)
 
 if __name__ == "__main__":
     main()
