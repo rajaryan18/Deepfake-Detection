@@ -57,8 +57,7 @@ class ResnetLstm(nn.Module):
             nn.LeakyReLU(),
             nn.Linear(in_features=hidden_size*2, out_features=hidden_size//2),
             nn.LeakyReLU(),
-            nn.Linear(in_features=hidden_size//2, out_features=1),
-            nn.Sigmoid()
+            nn.Linear(in_features=hidden_size//2, out_features=1)
         )
 
     def forward(self, sequence: torch.Tensor):

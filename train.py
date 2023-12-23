@@ -1,21 +1,18 @@
-import glob
-from sklearn.model_selection import train_test_split
 import cv2
 from torchvision import models, transforms
 import torch
 from torch import nn
 
 from models import ResnetLstm, Convolution3d
-from preprocess import preprocess
+from preprocess import preprocess, get_data, get_current
 
-LEARNING_RATE = 0.001
-EPOCHS = 50
+LEARNING_RATE = 0.1
+ENSEMBLE = 20
 
 def accuracy_fn(y_pred: torch.Tensor, y: torch.Tensor):
       return sum([1 for i in range(len(y)) if (y_pred[i] < 0.5 and y[i] == 0) or (y_pred[i] >= 0.5 and y[i] == 1)]) / len(y)
 
 def train(model: ResnetLstm, X: list, Y: list, loss_fn: nn.Module, optimizer: torch.optim.Optimizer, accuracy_fn: any, device: torch.device="cpu") -> None:
-    model.to(device)
     resnet = nn.Sequential(*(list(models.resnet18(pretrained=True).children())[0:8])).to(device)
     resnet.eval()
     print("\n\n===============Beginning the Training Process==================")
@@ -58,7 +55,6 @@ def test(model: ResnetLstm, X: list, Y: list, loss_fn: nn.Module, accuracy_fn: a
     resnet.eval()
     print("\n===========Beginning the Testing Process====================")
     print(f"Size of test dataset: {len(X)}")
-    model.to(device)
     model.eval()
     test_loss = 0
     accuracy = 0
@@ -89,15 +85,6 @@ def test(model: ResnetLstm, X: list, Y: list, loss_fn: nn.Module, accuracy_fn: a
         del resnet
         print(f"Test Loss: {test_loss / len(X)} | Test Accuracy: {accuracy / len(X)}")
 
-def get_data():
-    fake = glob.glob("./dataset/fake/*")
-    real = glob.glob("./dataset/real/*")
-    y = [0]*len(fake) + [1]*len(real)
-    X = fake + real
-    print(f"Fake videos: {len(fake)} | Real Videos: {len(real)} | Total Videos: {len(y)}")
-    return X, y
-
-
 def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Device in use: {device}")
@@ -106,18 +93,23 @@ def main():
     model = ResnetLstm(input_size=420, hidden_size=1000)
     # model = Convolution3d(input_size=500, hidden_size=1000)
 
+    model.to(device)
     total_params = sum(
         param.numel() for param in model.parameters()
     )
     print(f"Total Trainable parameters is {total_params}")
     loss_fn = nn.BCEWithLogitsLoss()
     optimizer = torch.optim.SGD(params=model.parameters(), lr=LEARNING_RATE)
-    X, y = get_data()
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=True)
-    for epoch in range(EPOCHS):
-        print(f"Epoch {epoch+1}:")
+    
+    X, X_test, y, y_test = get_data()
+    
+    for ensemble in range(ENSEMBLE):
+        print(f"Ensemble {ensemble+1}:")
+        X_train, X_val, y_train, y_val = get_current(X, y)
         train(model, X_train, y_train, loss_fn, optimizer, accuracy_fn, device)
-        test(model, X_test, y_test, loss_fn, accuracy_fn, device)
+        test(model, X_val, y_val, loss_fn, accuracy_fn, device)
+    test(model, X_test, y_test, loss_fn, accuracy_fn, device)
+    torch.save(model.state_dict(), "./models/resnetlstm.pt")
 
 if __name__ == "__main__":
     main()
