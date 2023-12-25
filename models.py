@@ -47,21 +47,20 @@ class ResnetLstm(nn.Module):
     def __init__(self, input_size: int, hidden_size: int):
         super(ResnetLstm, self).__init__()
         self.flatten = nn.Flatten()
-        self.conv = nn.Sequential(
-            nn.Conv2d(in_channels=512, out_channels=1, kernel_size=3),
-            nn.MaxPool2d(kernel_size=3, stride=2)
-        )
-        self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=1, dropout=0.2, batch_first=True)
+        self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=3, dropout=0.2, batch_first=True)
         self.head = nn.Sequential(
-            nn.Linear(in_features=hidden_size, out_features=hidden_size*2),
+            nn.Linear(in_features=hidden_size, out_features=hidden_size//2),
             nn.LeakyReLU(),
-            nn.Linear(in_features=hidden_size*2, out_features=hidden_size//2),
+            nn.Dropout(0.2),
+            nn.Linear(in_features=hidden_size//2, out_features=hidden_size//4),
             nn.LeakyReLU(),
-            nn.Linear(in_features=hidden_size//2, out_features=1)
+            nn.Dropout(0.2),
+            nn.Linear(in_features=hidden_size//4, out_features=1),
+            nn.Sigmoid()
         )
 
     def forward(self, sequence: torch.Tensor):
-        sequence = self.flatten(self.conv(sequence))
+        sequence = self.flatten(sequence)
         result, _ = self.lstm(sequence)
         output = self.head(result)
         return output

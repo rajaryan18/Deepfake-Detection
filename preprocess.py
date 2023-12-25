@@ -17,8 +17,10 @@ def get_data():
     y = [0]*len(fake) + [1]*len(real)
     X = fake + real
     print(f"Fake videos: {len(fake)} | Real Videos: {len(real)} | Total Videos: {len(y)}")
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=True, random_state=18)
-    return X_train, X_test, y_train, y_test
+    return X, y
+
+def split_test(X: list, y: list, split: float=0.2):
+    return train_test_split(X, y, test_size=split, shuffle=True, random_state=18)
 
 def get_current(X, y):
     random_indices = np.random.randint(low=0, high=len(X)-1, size=130)
